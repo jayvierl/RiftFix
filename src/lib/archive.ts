@@ -56,10 +56,12 @@ interface StoreData {
 }
 
 function dataDir(): string {
-  return (
-    process.env.RIFTFIX_DATA_DIR ??
-    path.join(/* turbopackIgnore: true */ process.cwd(), "data", "archive")
-  );
+  if (process.env.RIFTFIX_DATA_DIR) return process.env.RIFTFIX_DATA_DIR;
+  // Serverless filesystems (Vercel) are read-only outside /tmp. The /tmp
+  // store is per-instance and ephemeral — a hosted DB behind ArchiveStore
+  // is the production persistence step; locally we keep data/archive/.
+  if (process.env.VERCEL) return "/tmp/riftfix-archive";
+  return path.join(/* turbopackIgnore: true */ process.cwd(), "data", "archive");
 }
 
 class JsonArchiveStore implements ArchiveStore {

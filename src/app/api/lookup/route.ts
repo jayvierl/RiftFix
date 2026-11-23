@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
         { status: e.status }
       );
     }
+    console.error("lookup failed:", e);
     return NextResponse.json(
       { ok: false, error: "Unexpected error during lookup." },
       { status: 500 }
