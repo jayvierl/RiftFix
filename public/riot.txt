@@ -1,0 +1,4 @@
+# RiftFix — Riot Games domain verification placeholder.
+# When Riot provides a verification token for this domain during the
+# Production API key review, paste the token value in this file
+# (replacing this comment) and redeploy.
