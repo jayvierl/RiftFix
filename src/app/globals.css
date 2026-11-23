@@ -16,8 +16,8 @@ html {
 
 body {
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(14, 165, 233, 0.12), transparent 60%),
-    radial-gradient(900px 500px at 0% 0%, rgba(200, 170, 90, 0.08), transparent 55%),
+    radial-gradient(1200px 600px at 80% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 0% 0%, rgba(139, 92, 246, 0.09), transparent 55%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
@@ -32,4 +32,27 @@ body {
 .scroll-thin::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
+}
+
+/* Live corpus ticker (home page): the track holds repeated copies of the
+   same strip, so translating by -50% loops seamlessly. Pauses on hover;
+   fully static for reduced-motion visitors. */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker-track {
+  animation: ticker-scroll 45s linear infinite;
+}
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
 }

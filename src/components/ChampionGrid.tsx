@@ -2,9 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { motion } from "motion/react";
+import { Search } from "lucide-react";
 import type { ChampionSummary } from "@/lib/ddragon";
+import { ddragonLoadingUrl } from "@/lib/art";
 
 const ALL_TAGS = ["Fighter", "Mage", "Assassin", "Tank", "Support", "Marksman"];
+
+const MotionLink = motion.create(Link);
 
 export default function ChampionGrid({
   champions,
@@ -27,13 +33,16 @@ export default function ChampionGrid({
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search champions…"
-          className="w-full rounded-xl bg-slate-900/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-slate-700/80 focus:outline-none focus:ring-sky-400/60 sm:max-w-xs"
-          aria-label="Search champions"
-        />
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search champions…"
+            className="w-full rounded-xl bg-slate-900/80 py-3 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-slate-700/80 focus:outline-none focus:ring-sky-400/60"
+            aria-label="Search champions"
+          />
+        </div>
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setTag(null)}
@@ -66,26 +75,33 @@ export default function ChampionGrid({
       </p>
 
       <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-        {filtered.map((c) => (
-          <Link
+        {filtered.map((c, i) => (
+          <MotionLink
             key={c.id}
             href={`/champions/${c.id}`}
-            className="group rounded-xl bg-slate-900/60 p-2 ring-1 ring-slate-800 transition hover:bg-slate-800/80 hover:ring-sky-400/40"
+            className="group overflow-hidden rounded-xl bg-slate-900/60 ring-1 ring-slate-800 transition hover:bg-slate-800/80 hover:ring-sky-400/40"
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-20px" }}
+            transition={{ duration: 0.35, delay: Math.min(i * 0.015, 0.3) }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={c.iconUrl}
-              alt={c.name}
-              loading="lazy"
-              className="aspect-square w-full rounded-lg object-cover"
-            />
-            <p className="mt-1.5 truncate text-center text-xs font-semibold text-slate-200 group-hover:text-sky-300">
+            <div className="relative overflow-hidden">
+              <Image
+                src={ddragonLoadingUrl(c.id)}
+                alt={c.name}
+                width={308}
+                height={560}
+                className="aspect-[3/4] w-full object-cover object-top transition-transform duration-300 group-hover:scale-110"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            </div>
+            <p className="mt-1.5 truncate px-1 text-center text-xs font-semibold text-slate-200 group-hover:text-sky-300">
               {c.name}
             </p>
-            <p className="truncate text-center text-[10px] text-slate-500">
+            <p className="truncate px-1 pb-2 text-center text-[10px] text-slate-500">
               {c.tags.join(" · ")}
             </p>
-          </Link>
+          </MotionLink>
         ))}
       </div>
       {filtered.length === 0 && (

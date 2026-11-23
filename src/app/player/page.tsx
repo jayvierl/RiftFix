@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Activity, ArrowLeft, History, Swords, Target, TrendingUp } from "lucide-react";
 import MatchCard from "@/components/MatchCard";
 import TrackToggle from "@/components/TrackToggle";
 import ConfidenceBadge from "@/components/ConfidenceBadge";
 import SearchForm from "@/components/SearchForm";
+import RankEmblem from "@/components/RankEmblem";
+import { Reveal } from "@/components/motion-primitives";
 import { lookupPlayer } from "@/lib/lookup";
 import { RiotError } from "@/lib/riot";
 import { getChampions, getLatestVersion, profileIconUrl, championIconUrl } from "@/lib/ddragon";
@@ -26,16 +29,19 @@ function RankCard({ title, rank }: { title: string; rank: RankEntry | null }) {
     <div className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{title}</p>
       {rank ? (
-        <>
-          <p className="mt-1 text-xl font-black text-slate-50">
-            {titleCase(rank.tier)} {rank.division}
-            <span className="ml-2 text-sm font-semibold text-sky-300">{rank.lp} LP</span>
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            {rank.wins}W – {rank.losses}L ·{" "}
-            {pct(rank.wins / Math.max(rank.wins + rank.losses, 1))} win rate
-          </p>
-        </>
+        <div className="mt-1 flex items-center gap-3">
+          <RankEmblem tier={rank.tier} size={60} />
+          <div>
+            <p className="text-xl font-black text-slate-50">
+              {titleCase(rank.tier)} {rank.division}
+              <span className="ml-2 text-sm font-semibold text-sky-300">{rank.lp} LP</span>
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {rank.wins}W – {rank.losses}L ·{" "}
+              {pct(rank.wins / Math.max(rank.wins + rank.losses, 1))} win rate
+            </p>
+          </div>
+        </div>
       ) : (
         <p className="mt-1 text-sm text-slate-400">Unranked this season</p>
       )}
@@ -93,6 +99,7 @@ function ProfileView({ profile, version, champIcons }: {
       )}
 
       {/* Rank + mastery */}
+      <Reveal>
       <section className="mt-6 grid gap-4 md:grid-cols-3">
         <RankCard title="Ranked Solo/Duo" rank={s.solo} />
         <RankCard title="Ranked Flex" rank={s.flex} />
@@ -124,13 +131,15 @@ function ProfileView({ profile, version, champIcons }: {
           )}
         </div>
       </section>
+      </Reveal>
 
       {/* One Fix + benchmark */}
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl bg-gradient-to-br from-sky-500/15 to-slate-900/60 p-5 ring-1 ring-sky-400/30">
+        <Reveal spring delay={0.2} className="h-full">
+        <div className="h-full rounded-2xl bg-gradient-to-br from-sky-500/15 via-slate-900/60 to-violet-500/10 p-5 ring-1 ring-sky-400/30">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-sky-300">
-              Your One Fix — your biggest lever
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-sky-300">
+              <Target className="h-4 w-4" /> Your One Fix — your biggest lever
             </h2>
             {oneFix.status === "ok" && (
               <span className="text-xs text-slate-400">
@@ -172,9 +181,13 @@ function ProfileView({ profile, version, champIcons }: {
           )}
         </div>
 
-        <div className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
+        </Reveal>
+
+        <Reveal delay={0.05} className="h-full">
+        <div className="h-full rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-300">
+              <TrendingUp className="h-4 w-4" />
               Next-rank benchmark
               {benchmark.nextTierName && (
                 <span className="text-amber-300"> · {titleCase(benchmark.nextTierName)}</span>
@@ -214,12 +227,15 @@ function ProfileView({ profile, version, champIcons }: {
             <p className="mt-3 text-sm leading-relaxed text-slate-400">{benchmark.message}</p>
           )}
         </div>
+        </Reveal>
       </section>
 
       {/* Champion stats + pool/session patterns */}
+      <Reveal>
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-300">
+            <Swords className="h-4 w-4" />
             Champion stats <span className="font-normal text-slate-500">(archived games)</span>
           </h2>
           {profile.championStats.length === 0 ? (
@@ -266,7 +282,8 @@ function ProfileView({ profile, version, champIcons }: {
         </div>
 
         <div className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-300">
+            <Activity className="h-4 w-4" />
             Session patterns
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -315,10 +332,12 @@ function ProfileView({ profile, version, champIcons }: {
           </p>
         </div>
       </section>
+      </Reveal>
 
       {/* Match history */}
       <section className="mt-6">
-        <h2 className="text-lg font-bold text-slate-100">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-100">
+          <History className="h-5 w-5 text-sky-300" />
           Recent matches{" "}
           <span className="text-sm font-normal text-slate-500">
             — kept in your Forever archive, tap a match for the full scoreboard
@@ -329,11 +348,13 @@ function ProfileView({ profile, version, champIcons }: {
             No matches archived for this player yet.
           </p>
         ) : (
+          <Reveal>
           <div className="mt-3 space-y-2">
             {profile.matches.map((m) => (
               <MatchCard key={m.matchId} match={m} puuid={s.puuid} version={version} champIcons={champIcons} />
             ))}
           </div>
+          </Reveal>
         )}
       </section>
     </div>
@@ -397,8 +418,8 @@ export default async function PlayerPage({
           <SearchForm defaultPlatform={platform} />
         </div>
         <p className="mt-6 text-sm text-slate-500">
-          <Link href="/" className="text-sky-400 hover:underline">
-            ← Back to RiftFix home
+          <Link href="/" className="flex items-center gap-1.5 text-sky-400 hover:underline">
+            <ArrowLeft className="h-4 w-4" /> Back to RiftFix home
           </Link>
         </p>
       </div>

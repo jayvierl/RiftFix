@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Hammer, Trophy } from "lucide-react";
 import ConfidenceBadge from "@/components/ConfidenceBadge";
 import { getArchive } from "@/lib/archive";
 import { computeBuilds, computeTierList } from "@/lib/analysis";
@@ -90,7 +91,9 @@ export default async function BuildsPage() {
       ) : (
         <>
           <section className="mt-8">
-            <h2 className="text-lg font-bold text-slate-100">Tier list (archived ranked games)</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-100">
+              <Trophy className="h-5 w-5 text-amber-300" /> Tier list (archived ranked games)
+            </h2>
             <div className="mt-3 overflow-x-auto rounded-2xl ring-1 ring-slate-800">
               <table className="w-full min-w-[560px] bg-slate-900/60 text-sm">
                 <thead>
@@ -130,7 +133,9 @@ export default async function BuildsPage() {
           </section>
 
           <section className="mt-10">
-            <h2 className="text-lg font-bold text-slate-100">Most common builds by champion &amp; role</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-100">
+              <Hammer className="h-5 w-5 text-sky-300" /> Most common builds by champion &amp; role
+            </h2>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {builds.slice(0, 24).map((b) => (
                 <div key={`${b.championId}-${b.position}`} className="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800">

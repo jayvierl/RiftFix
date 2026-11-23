@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Star, X } from "lucide-react";
+import { toast } from "sonner";
 import { profilePath } from "@/lib/format";
 import { getPlatform } from "@/lib/regions";
 import { untrackPlayer, useTrackedPlayers } from "@/lib/tracked-local";
@@ -20,7 +22,7 @@ export default function TrackedPlayers() {
         <p className="mt-2 rounded-xl bg-slate-900/60 px-4 py-4 text-sm text-slate-400 ring-1 ring-slate-800">
           Players you track are saved in this browser — no account needed.
           Look up a player and tap{" "}
-          <span className="text-amber-300">“☆ Track this player”</span> on their
+          <span className="text-amber-300">“Track this player”</span> on their
           profile and they will live here, in this browser only.
         </p>
       ) : (
@@ -43,14 +45,19 @@ export default function TrackedPlayers() {
                 </span>
               </Link>
               <span className="flex shrink-0 items-center gap-2">
-                <span className="text-amber-300">★</span>
+                <Star className="h-4 w-4 text-amber-300" fill="currentColor" />
                 <button
-                  onClick={() => untrackPlayer(p.puuid)}
+                  onClick={() => {
+                    untrackPlayer(p.puuid);
+                    toast("Removed from your tracked players", {
+                      description: `${p.gameName}#${p.tagLine} was only stored in this browser.`,
+                    });
+                  }}
                   className="rounded px-1 text-sm text-slate-500 transition hover:text-slate-200"
                   title="Remove from your tracked players (this browser only)"
                   aria-label={`Untrack ${p.gameName}#${p.tagLine}`}
                 >
-                  ✕
+                  <X className="h-4 w-4" />
                 </button>
               </span>
             </div>

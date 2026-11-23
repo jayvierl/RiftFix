@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import SplashArt from "@/components/SplashArt";
+import { Reveal } from "@/components/motion-primitives";
 import { getChampionDetail, getLatestVersion } from "@/lib/ddragon";
 
 export async function generateMetadata({
@@ -51,16 +54,15 @@ export default async function ChampionDetailPage({
 
   return (
     <div>
-      <Link href="/champions" className="text-sm text-sky-400 hover:underline">
-        ← All champions
+      <Link href="/champions" className="flex items-center gap-1.5 text-sm text-sky-400 hover:underline">
+        <ArrowLeft className="h-4 w-4" /> All champions
       </Link>
 
-      <section className="relative mt-4 overflow-hidden rounded-2xl ring-1 ring-slate-800">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={champion.splashUrl}
-          alt={champion.name}
-          className="h-56 w-full object-cover object-top sm:h-72"
+      <section className="relative mt-4 h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-sky-950 via-[#0b0e14] to-violet-950 ring-1 ring-slate-800 sm:h-96">
+        <SplashArt
+          championId={champion.id}
+          name={champion.name}
+          className="object-cover object-top"
         />
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#070b14] via-[#070b14]/70 to-transparent p-5 pt-16">
           <h1 className="text-3xl font-black text-white sm:text-4xl">
@@ -82,6 +84,7 @@ export default async function ChampionDetailPage({
         </div>
       </section>
 
+      <Reveal>
       <section className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800 lg:col-span-2">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-300">Lore</h2>
@@ -155,12 +158,13 @@ export default async function ChampionDetailPage({
               RiftFix builds come only from archived ranked games. See what the
               Forever archive says so far:
             </p>
-            <Link href="/builds" className="mt-2 inline-block text-sm font-semibold text-sky-400 hover:underline">
-              Open Builds &amp; Tier List →
+            <Link href="/builds" className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-sky-400 hover:underline">
+              Open Builds &amp; Tier List <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </section>
+      </Reveal>
     </div>
   );
 }

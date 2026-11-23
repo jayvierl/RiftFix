@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { Hammer, Home, Swords } from "lucide-react";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -58,20 +60,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </span>
             </Link>
             <nav className="ml-auto flex items-center gap-1 text-sm font-medium text-slate-300">
-              <Link href="/" className="rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
-                Home
+              <Link href="/" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
+                <Home className="h-4 w-4" /> Home
               </Link>
-              <Link href="/champions" className="rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
-                Champions
+              <Link href="/champions" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
+                <Swords className="h-4 w-4" /> Champions
               </Link>
-              <Link href="/builds" className="rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
-                Builds &amp; Tier List
+              <Link href="/builds" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 hover:bg-slate-800 hover:text-white">
+                <Hammer className="h-4 w-4" /> Builds &amp; Tier List
               </Link>
             </nav>
           </div>
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+        <Providers />
 
         <footer className="border-t border-white/5 py-6">
           <div className="mx-auto w-full max-w-6xl px-4 text-xs leading-relaxed text-slate-500">

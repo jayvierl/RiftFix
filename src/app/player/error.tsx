@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function PlayerError({
   error,
@@ -38,8 +39,8 @@ export default function PlayerError({
             Try again
           </button>
         )}
-        <Link href="/" className="text-sm text-sky-400 hover:underline">
-          ← Back to RiftFix home
+        <Link href="/" className="flex items-center gap-1.5 text-sm text-sky-400 hover:underline">
+          <ArrowLeft className="h-4 w-4" /> Back to RiftFix home
         </Link>
       </div>
     </div>

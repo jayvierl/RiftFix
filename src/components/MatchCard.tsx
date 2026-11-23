@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { ArchivedMatch, ArchivedParticipant } from "@/lib/types";
 import { queueLabel } from "@/lib/analysis";
 import { duration, num, timeAgo } from "@/lib/format";
@@ -181,7 +182,13 @@ export default function MatchCard({
         <span className="ml-auto text-right text-[11px] text-slate-400">
           <span className="block font-medium text-slate-300">{queueLabel(match.queueId)}</span>
           {duration(match.gameDurationSec / 60)} · {timeAgo(match.gameStartTimestamp)}
-          <span className="block text-slate-500">{open ? "Hide scoreboard ▲" : "Scoreboard ▼"}</span>
+          <span className="flex items-center justify-end gap-0.5 text-slate-500">
+            {open ? (
+              <>Hide scoreboard <ChevronUp className="h-3 w-3" /></>
+            ) : (
+              <>Scoreboard <ChevronDown className="h-3 w-3" /></>
+            )}
+          </span>
         </span>
       </button>
       {open && (

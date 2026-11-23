@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import { PLATFORM_LIST } from "@/lib/regions";
 import { profilePath } from "@/lib/format";
 
@@ -57,7 +58,7 @@ export default function SearchForm({
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="flex flex-1 items-center rounded-xl bg-slate-900/80 ring-1 ring-slate-700/80 focus-within:ring-sky-400/60">
           <span className="pl-4 pr-1 text-slate-500">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            <Search className="h-[18px] w-[18px]" />
           </span>
           <input
             value={riotId}
