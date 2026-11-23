@@ -47,6 +47,10 @@ import { getPlatform } from "./regions";
 
 export const MATCHES_PER_LOOKUP = 20;
 
+/** A snapshot younger than this is served straight from the archive —
+ *  repeat lookups inside the window cost zero Riot API calls. */
+const FRESH_SNAPSHOT_MS = 3 * 60 * 1000;
+
 export interface PlayerProfile {
   snapshot: PlayerSnapshot;
   platformLabel: string;
@@ -189,6 +193,20 @@ export async function lookupPlayer(
     );
   }
 
+  // Freshness short-circuit: a snapshot refreshed moments ago is built
+  // from archived data without touching the Riot API at all.
+  const fresh = await archive.findPlayerByRiotId(
+    info.platform,
+    gameName,
+    tagLine
+  );
+  if (
+    fresh &&
+    Date.now() - new Date(fresh.updatedAt).getTime() < FRESH_SNAPSHOT_MS
+  ) {
+    return buildProfile(fresh, false);
+  }
+
   const account = await getAccountByRiotId(info.platform, gameName, tagLine);
   const { champions } = await getChampions();
   const nameById = new Map(champions.map((c) => [c.numericId, c.name]));
@@ -225,8 +243,16 @@ export async function lookupPlayer(
       const raw = await getMatch(info.platform, matchId);
       await archive.saveMatch(toArchivedMatch(raw, info.platform));
     } catch (e) {
-      // A single failed match download shouldn't fail the whole lookup.
-      if (e instanceof RiotError && e.code === "rate_limited") throw e;
+      // A single failed match download shouldn't fail the whole lookup —
+      // but a dead key or a hard rate limit fails everything anyway, so
+      // surface those instead of silently returning a partial profile.
+      if (
+        e instanceof RiotError &&
+        (e.code === "rate_limited" || e.code === "invalid_key")
+      ) {
+        throw e;
+      }
+      console.error(`[lookup] failed to fetch match ${matchId}:`, e);
     }
   }
 

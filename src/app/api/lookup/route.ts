@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lookupPlayer } from "@/lib/lookup";
 import { RiotError } from "@/lib/riot";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,16 @@ export const maxDuration = 60;
 
 /** Full player lookup (archives every fetched match permanently). */
 export async function GET(req: NextRequest) {
+  if (!rateLimit(`lookup:${clientIp(req)}`, 10, 60_000)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "rate_limited",
+        error: "Too many lookups from this connection — wait a moment and try again.",
+      },
+      { status: 429 }
+    );
+  }
   const params = req.nextUrl.searchParams;
   const platform = params.get("platform") ?? "na1";
   const gameName = params.get("gameName") ?? "";

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAccountByRiotId, hasRiotKey, RiotError } from "@/lib/riot";
 import { getArchive } from "@/lib/archive";
 import { getPlatform } from "@/lib/regions";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,16 @@ export const dynamic = "force-dynamic";
  * profile page performs (and archives) the full lookup.
  */
 export async function GET(req: NextRequest) {
+  if (!rateLimit(`search:${clientIp(req)}`, 10, 60_000)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "rate_limited",
+        error: "Too many searches from this connection — wait a moment and try again.",
+      },
+      { status: 429 }
+    );
+  }
   const params = req.nextUrl.searchParams;
   const platform = params.get("platform") ?? "na1";
   const gameName = params.get("gameName") ?? "";

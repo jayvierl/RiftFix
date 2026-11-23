@@ -247,7 +247,13 @@ export function computeOneFix(lines: GameStatLine[]): OneFixResult {
       format: top.def.format,
       advice: top.def.advice,
     },
-    comparisons: comparisons.map(({ def: _def, ...rest }) => rest),
+    comparisons: comparisons.map((c) => ({
+      stat: c.stat,
+      label: c.label,
+      winAvg: c.winAvg,
+      lossAvg: c.lossAvg,
+      gapPct: c.gapPct,
+    })),
   };
 }
 
@@ -302,7 +308,7 @@ export function computeNextRankBenchmark(args: {
       confidence,
       status: "insufficient",
       rows: [],
-      message: `Not enough ${target} games in the archive yet (${corpus.length} found, need at least 5, and 3 of your own games). The benchmark fills in as more ${target} players are looked up on RiftFix.`,
+      message: `Not enough archived games from players currently ranked ${target} yet (${corpus.length} found, need at least 5, and 3 of your own games). The benchmark fills in as more players currently ranked ${target} are looked up on RiftFix.`,
     };
   }
   const avg = (arr: GameStatLine[], key: keyof GameStatLine) =>

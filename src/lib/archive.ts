@@ -2,25 +2,26 @@
  * Forever archive — RiftFix's permanent store of fetched matches and player
  * snapshots.
  *
- * The rest of the app only talks to the `ArchiveStore` interface, so this
- * JSON-file implementation can later be swapped for a hosted database
- * (Postgres, Turso, Vercel KV/Postgres, ...) without touching callers.
- *
- * Current implementation: three JSON documents under `data/archive/`
- * (configurable with RIFTFIX_DATA_DIR):
- *   - matches.json   { [matchId]: ArchivedMatch }
- *   - players.json   { [puuid]: PlayerSnapshot }
- *   - tracked.json   { [puuid]: TrackedPlayer }
- *
- * Writes are serialized through a small promise queue and written atomically
- * (tmp file + rename) so a crash mid-write cannot corrupt the archive.
- *
- * NOTE: on serverless hosts with an ephemeral filesystem (e.g. Vercel
- * functions) this store is best-effort/local only — see README "Deploy
- * notes". The interface is the seam where a hosted DB plugs in.
+ * The rest of the app only talks to the `ArchiveStore` interface. Two
+ * implementations exist:
+ *   - Postgres (src/lib/archive-db.ts, Neon serverless driver) — used
+ *     whenever DATABASE_URL is set. This is the production store: it
+ *     persists across serverless instances.
+ *   - JSON files (below) — local-dev fallback when DATABASE_URL is unset:
+ *     three JSON documents under `data/archive/` (configurable with
+ *     RIFTFIX_DATA_DIR):
+ *       - matches.json   { [matchId]: ArchivedMatch }
+ *       - players.json   { [puuid]: PlayerSnapshot }
+ *       - tracked.json   { [puuid]: TrackedPlayer }
+ *     Writes are serialized through a small promise queue and written
+ *     atomically (tmp file + rename) so a crash mid-write cannot corrupt
+ *     the archive. NOTE: on serverless hosts the JSON store is
+ *     per-instance/ephemeral — production must set DATABASE_URL.
  */
+import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
+import { PostgresArchiveStore } from "./archive-db";
 import type {
   ArchiveCounts,
   ArchivedMatch,
@@ -66,25 +67,47 @@ function dataDir(): string {
 
 class JsonArchiveStore implements ArchiveStore {
   private cache: StoreData | null = null;
+  private loadPromise: Promise<StoreData> | null = null;
   private writeQueue: Promise<void> = Promise.resolve();
 
-  private async load(): Promise<StoreData> {
-    if (this.cache) return this.cache;
-    const dir = dataDir();
-    const read = async <T>(file: string, fallback: T): Promise<T> => {
-      try {
-        const raw = await fs.readFile(path.join(dir, file), "utf8");
-        return JSON.parse(raw) as T;
-      } catch {
-        return fallback;
-      }
-    };
-    this.cache = {
-      matches: await read("matches.json", {}),
-      players: await read("players.json", {}),
-      tracked: await read("tracked.json", {}),
-    };
-    return this.cache;
+  private load(): Promise<StoreData> {
+    if (this.cache) return Promise.resolve(this.cache);
+    // Share one in-flight load: concurrent first callers must not each read
+    // the files and race to populate the cache (a later finisher could
+    // clobber matches another caller had already added in memory).
+    if (!this.loadPromise) {
+      this.loadPromise = (async () => {
+        const dir = dataDir();
+        const read = async <T>(file: string, fallback: T): Promise<T> => {
+          let raw: string;
+          try {
+            raw = await fs.readFile(path.join(dir, file), "utf8");
+          } catch (e) {
+            // Missing file = fresh archive; anything else is worth a log.
+            if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+              console.error(`[archive] could not read ${file}:`, e);
+            }
+            return fallback;
+          }
+          try {
+            return JSON.parse(raw) as T;
+          } catch (e) {
+            console.error(
+              `[archive] ${file} is not valid JSON — starting that file empty:`,
+              e
+            );
+            return fallback;
+          }
+        };
+        this.cache = {
+          matches: await read("matches.json", {}),
+          players: await read("players.json", {}),
+          tracked: await read("tracked.json", {}),
+        };
+        return this.cache;
+      })();
+    }
+    return this.loadPromise;
   }
 
   private persist<K extends keyof StoreData>(key: K): Promise<void> {
@@ -201,7 +224,9 @@ const globalForArchive = globalThis as unknown as {
 
 export function getArchive(): ArchiveStore {
   if (!globalForArchive.riftfixArchive) {
-    globalForArchive.riftfixArchive = new JsonArchiveStore();
+    globalForArchive.riftfixArchive = process.env.DATABASE_URL
+      ? new PostgresArchiveStore()
+      : new JsonArchiveStore();
   }
   return globalForArchive.riftfixArchive;
 }

@@ -8,6 +8,7 @@
  * This module must only be imported from server components, route handlers,
  * or other server-only code.
  */
+import "server-only";
 import { getPlatform, platformHost, regionalHost } from "./regions";
 import type { MasteryEntry, RankEntry } from "./types";
 
@@ -49,11 +50,71 @@ function requireKey(): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/* ------------------------- client-side rate budget -------------------------
+ * Every Riot call from this process goes through one shared gate so a burst
+ * of lookups can never blow the key's limits (dev keys: 20 req/s and
+ * 100 req / 2 min — we stay comfortably under both):
+ *   - token bucket: capacity 15, refilled at 15 tokens/sec
+ *   - sliding window: at most 80 requests in any rolling 2 minutes
+ * Callers are serialized through a promise chain, so they queue fairly
+ * instead of racing the bucket.
+ */
+const BUCKET_CAPACITY = 15;
+const BUCKET_REFILL_PER_SEC = 15;
+const WINDOW_MS = 120_000;
+const WINDOW_MAX = 80;
+
+let bucketTokens = BUCKET_CAPACITY;
+let bucketUpdatedAt = Date.now();
+const windowHits: number[] = [];
+let gateChain: Promise<void> = Promise.resolve();
+
+async function acquireRateSlot(): Promise<void> {
+  for (;;) {
+    const now = Date.now();
+    const elapsedSec = (now - bucketUpdatedAt) / 1000;
+    bucketTokens = Math.min(
+      BUCKET_CAPACITY,
+      bucketTokens + elapsedSec * BUCKET_REFILL_PER_SEC
+    );
+    bucketUpdatedAt = now;
+    while (windowHits.length > 0 && windowHits[0] <= now - WINDOW_MS) {
+      windowHits.shift();
+    }
+    if (bucketTokens >= 1 && windowHits.length < WINDOW_MAX) {
+      bucketTokens -= 1;
+      windowHits.push(now);
+      return;
+    }
+    // Wait until a token refills AND the oldest window hit ages out,
+    // whichever is the binding constraint.
+    const tokenWaitMs =
+      bucketTokens >= 1 ? 0 : ((1 - bucketTokens) / BUCKET_REFILL_PER_SEC) * 1000;
+    const windowWaitMs =
+      windowHits.length < WINDOW_MAX
+        ? 0
+        : windowHits[0] + WINDOW_MS - now;
+    await sleep(Math.max(tokenWaitMs, windowWaitMs, 5) + 5);
+  }
+}
+
+function rateGate(): Promise<void> {
+  const slot = gateChain.then(() => acquireRateSlot());
+  // Keep the chain alive even if a waiter is cancelled by an upstream abort.
+  gateChain = slot.then(
+    () => undefined,
+    () => undefined
+  );
+  return slot;
+}
+
 async function riotFetch<T>(url: string, attempt = 0): Promise<T> {
   const key = requireKey();
+  await rateGate();
   const res = await fetch(url, {
     headers: { "X-Riot-Token": key },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (res.status === 404) {
     throw new RiotError("not_found", 404, "Not found on the Riot API.");
@@ -73,7 +134,8 @@ async function riotFetch<T>(url: string, attempt = 0): Promise<T> {
         "Riot API rate limit reached. Please try again in a moment."
       );
     }
-    const retryAfter = Number(res.headers.get("Retry-After") ?? "1");
+    const parsed = parseInt(res.headers.get("Retry-After") ?? "", 10);
+    const retryAfter = Number.isFinite(parsed) ? parsed : 1;
     await sleep(Math.min(retryAfter, 5) * 1000);
     return riotFetch<T>(url, attempt + 1);
   }
@@ -209,7 +271,7 @@ export async function getSummonerByPuuid(
 ): Promise<RiotSummoner> {
   requirePlatform(platform);
   return riotFetch<RiotSummoner>(
-    `${platformHost(platform)}/lol/summoner/v4/summoners/by-puuid/${puuid}`
+    `${platformHost(platform)}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`
   );
 }
 
@@ -219,7 +281,7 @@ export async function getLeagueEntriesByPuuid(
 ): Promise<{ solo: RankEntry | null; flex: RankEntry | null }> {
   requirePlatform(platform);
   const entries = await riotFetch<RawLeagueEntry[]>(
-    `${platformHost(platform)}/lol/league/v4/entries/by-puuid/${puuid}`
+    `${platformHost(platform)}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`
   );
   const map = (e?: RawLeagueEntry): RankEntry | null =>
     e
@@ -246,7 +308,7 @@ export async function getTopMastery(
 ): Promise<MasteryEntry[]> {
   requirePlatform(platform);
   const raw = await riotFetch<RawMastery[]>(
-    `${platformHost(platform)}/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=${count}`
+    `${platformHost(platform)}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}/top?count=${count}`
   );
   return raw.map((m) => ({
     championId: m.championId,
@@ -263,7 +325,7 @@ export async function getMatchIds(
 ): Promise<string[]> {
   const info = requirePlatform(platform);
   return riotFetch<string[]>(
-    `${regionalHost(info.region)}/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=${count}`
+    `${regionalHost(info.region)}/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${count}`
   );
 }
 
@@ -273,7 +335,7 @@ export async function getMatch(
 ): Promise<RawMatch> {
   const info = requirePlatform(platform);
   return riotFetch<RawMatch>(
-    `${regionalHost(info.region)}/lol/match/v5/matches/${matchId}`
+    `${regionalHost(info.region)}/lol/match/v5/matches/${encodeURIComponent(matchId)}`
   );
 }
 
@@ -283,6 +345,6 @@ export async function getMatchTimeline(
 ): Promise<unknown> {
   const info = requirePlatform(platform);
   return riotFetch<unknown>(
-    `${regionalHost(info.region)}/lol/match/v5/matches/${matchId}/timeline`
+    `${regionalHost(info.region)}/lol/match/v5/matches/${encodeURIComponent(matchId)}/timeline`
   );
 }

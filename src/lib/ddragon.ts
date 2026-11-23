@@ -61,17 +61,23 @@ interface RawChampion {
   }>;
 }
 
-let versionCache: string | null = null;
+const VERSION_TTL_MS = 60 * 60 * 1000; // 1h — new patches land ~fortnightly
+let versionCache: { version: string; fetchedAt: number } | null = null;
 
 export async function getLatestVersion(): Promise<string> {
-  if (versionCache) return versionCache;
+  if (versionCache && Date.now() - versionCache.fetchedAt < VERSION_TTL_MS) {
+    return versionCache.version;
+  }
   const res = await fetch(`${DDRAGON}/api/versions.json`, {
     next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`Data Dragon versions failed: ${res.status}`);
   const versions = (await res.json()) as string[];
-  versionCache = versions[0];
-  return versionCache;
+  if (!Array.isArray(versions) || versions.length === 0) {
+    throw new Error("Data Dragon versions response was empty.");
+  }
+  versionCache = { version: versions[0], fetchedAt: Date.now() };
+  return versionCache.version;
 }
 
 export function championIconUrl(version: string, championId: string): string {
@@ -128,6 +134,10 @@ export async function getChampionByNumericId(
 export async function getChampionDetail(
   id: string
 ): Promise<{ version: string; champion: ChampionDetail } | null> {
+  // Validate against the known champion id set first: an arbitrary id would
+  // otherwise be interpolated straight into the Data Dragon URL.
+  const { champions } = await getChampions();
+  if (!champions.some((c) => c.id === id)) return null;
   const version = await getLatestVersion();
   const res = await fetch(
     `${DDRAGON}/cdn/${version}/data/en_US/champion/${id}.json`,
@@ -231,6 +241,10 @@ export async function getRuneNames(): Promise<Record<number, string>> {
       }
     }
   }
-  runeNamesCache = names;
+  // Cache only a successful, non-empty result — a failed fetch must not
+  // poison the cache with an empty map for the life of the process.
+  if (Object.keys(names).length > 0) {
+    runeNamesCache = names;
+  }
   return names;
 }

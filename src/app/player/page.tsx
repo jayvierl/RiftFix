@@ -199,8 +199,10 @@ function ProfileView({ profile, version, champIcons }: {
               </table>
               <p className="mt-2 text-xs text-slate-500">
                 Benchmark computed only from {benchmark.sampleGames} archived
-                games played by {benchmark.nextTierName ? titleCase(benchmark.nextTierName) : "next-tier"} players
-                looked up on RiftFix.
+                games from players currently ranked {benchmark.nextTierName ? titleCase(benchmark.nextTierName) : "next tier"} —
+                grouped by the tier on each player&apos;s latest RiftFix
+                snapshot, so the comparison group is players by their
+                current tier.
               </p>
             </>
           ) : (
@@ -362,14 +364,21 @@ export default async function PlayerPage({
   const champIcons: Record<number, string> = {};
   for (const c of champions) champIcons[c.numericId] = c.iconUrl;
 
+  // Assign inside try/catch and return JSX afterwards: constructing JSX in
+  // a try block can't catch render errors anyway (that's what error.tsx is
+  // for) and trips the react-hooks/error-boundaries lint rule.
+  let profile: PlayerProfile | null = null;
+  let errorMessage: string | null = null;
   try {
-    const profile = await lookupPlayer(platform, gameName, tagLine);
-    return <ProfileView profile={profile} version={version} champIcons={champIcons} />;
+    profile = await lookupPlayer(platform, gameName, tagLine);
   } catch (e) {
-    const message =
+    errorMessage =
       e instanceof RiotError
         ? e.message
         : "Something went wrong loading this profile. Please try again.";
+  }
+
+  if (!profile) {
     return (
       <div className="mx-auto max-w-2xl py-10">
         <h1 className="text-2xl font-black text-slate-50">
@@ -377,7 +386,7 @@ export default async function PlayerPage({
           <span className="text-slate-500">#{tagLine}</span>
         </h1>
         <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200 ring-1 ring-red-400/25">
-          {message}
+          {errorMessage ?? "Something went wrong loading this profile. Please try again."}
         </p>
         <div className="mt-6">
           <SearchForm defaultPlatform={platform} />
@@ -390,4 +399,6 @@ export default async function PlayerPage({
       </div>
     );
   }
+
+  return <ProfileView profile={profile} version={version} champIcons={champIcons} />;
 }
