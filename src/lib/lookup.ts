@@ -42,6 +42,7 @@ import type {
   ArchivedMatch,
   ArchivedParticipant,
   PlayerSnapshot,
+  SnapshotHistoryEntry,
 } from "./types";
 import { getPlatform } from "./regions";
 
@@ -63,6 +64,13 @@ export interface PlayerProfile {
   pool: PoolPattern;
   sessions: SessionPatterns;
   totals: { games: number; wins: number; winRate: number };
+  /** Ranked-state observations from live lookups, oldest first (all queues). */
+  snapshotHistory: SnapshotHistoryEntry[];
+  /** Games per UTC day ("yyyy-MM-dd" -> count) across the player's whole
+   *  archive, for the season heatmap. Sparse: missing days are 0. */
+  gamesByDay: Record<string, number>;
+  /** Total archived matches for this player (not just the recent page). */
+  archivedGamesTotal: number;
 }
 
 function toArchivedParticipant(
@@ -144,6 +152,28 @@ async function buildProfile(
   }
 
   const currentTier = snapshot.solo?.tier ?? snapshot.flex?.tier ?? null;
+
+  // Snapshot history (for the LP delta / climb chart) and the full-archive
+  // per-day game counts (for the season heatmap). Both are archive reads —
+  // a failure here must never sink the profile, so they degrade to empty.
+  let snapshotHistory: SnapshotHistoryEntry[] = [];
+  const gamesByDay: Record<string, number> = {};
+  let archivedGamesTotal = matches.length;
+  try {
+    snapshotHistory = await archive.getSnapshotHistory(snapshot.puuid);
+    const allPlayerMatches = await archive.listMatchesForPlayer(
+      snapshot.puuid,
+      1000
+    );
+    archivedGamesTotal = allPlayerMatches.length;
+    for (const m of allPlayerMatches) {
+      const day = new Date(m.gameStartTimestamp).toISOString().slice(0, 10);
+      gamesByDay[day] = (gamesByDay[day] ?? 0) + 1;
+    }
+  } catch (e) {
+    console.error("[lookup] history/activity load failed:", e);
+  }
+
   return {
     snapshot,
     platformLabel: getPlatform(snapshot.platform)?.label ?? snapshot.platform,
@@ -163,6 +193,9 @@ async function buildProfile(
       wins,
       winRate: lines.length ? wins / lines.length : 0,
     },
+    snapshotHistory,
+    gamesByDay,
+    archivedGamesTotal,
   };
 }
 
@@ -228,6 +261,33 @@ export async function lookupPlayer(
     updatedAt: new Date().toISOString(),
   };
   await archive.savePlayerSnapshot(snapshot);
+
+  // Record the ranked state into snapshot history (the return-hook data:
+  // LP deltas, climb chart, rank-up detection). Best-effort by design —
+  // history must never fail a lookup. The store dedupes identical states
+  // recorded < 30 minutes apart.
+  try {
+    const capturedAt = new Date().toISOString();
+    for (const [queue, entry] of [
+      ["solo", snapshot.solo],
+      ["flex", snapshot.flex],
+    ] as const) {
+      if (!entry) continue;
+      await archive.recordSnapshot({
+        puuid: snapshot.puuid,
+        capturedAt,
+        platform: snapshot.platform,
+        queue,
+        tier: entry.tier,
+        division: entry.division,
+        lp: entry.lp,
+        wins: entry.wins,
+        losses: entry.losses,
+      });
+    }
+  } catch (e) {
+    console.error("[lookup] snapshot history recording failed:", e);
+  }
 
   // Fetch newest matches; archive the ones we don't already keep forever.
   const matchIds = await getMatchIds(

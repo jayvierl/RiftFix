@@ -52,8 +52,40 @@ export default async function ChampionDetailPage({
   if (!detail) notFound();
   const { champion } = detail;
 
+  const patch = await getLatestVersion().catch(() => "");
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const pageUrl = `${siteUrl}/champions/${champion.id}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        name: `${champion.name} — ${champion.title} · Patch ${patch} — RiftFix`,
+        description: `${champion.name}, ${champion.title} — lore, abilities, and base stats on patch ${patch}, plus honest builds from real archived games on RiftFix.`,
+        url: pageUrl,
+        isPartOf: { "@type": "WebSite", name: "RiftFix", url: siteUrl || undefined },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${siteUrl}/` },
+          { "@type": "ListItem", position: 2, name: "Champions", item: `${siteUrl}/champions` },
+          { "@type": "ListItem", position: 3, name: champion.name, item: pageUrl },
+        ],
+      },
+    ],
+  };
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <Link href="/champions" className="flex items-center gap-1.5 text-sm text-sky-400 hover:underline">
         <ArrowLeft className="h-4 w-4" /> All champions
       </Link>

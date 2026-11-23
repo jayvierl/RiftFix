@@ -79,3 +79,22 @@ export interface ArchiveCounts {
   players: number;
   tracked: number;
 }
+
+/**
+ * One ranked-state observation of a player, recorded on every live lookup
+ * (deduplicated by the store). This is the "reasons to return" history:
+ * LP deltas, climb charts and rank-up detection are all computed from
+ * these rows — never from anything scraped or estimated.
+ */
+export interface SnapshotHistoryEntry {
+  puuid: string;
+  /** ISO timestamp of when the snapshot was recorded. */
+  capturedAt: string;
+  platform: string;
+  queue: "solo" | "flex";
+  tier: string; // e.g. "GOLD"
+  division: string; // e.g. "IV" ("I" for Master+)
+  lp: number;
+  wins: number;
+  losses: number;
+}

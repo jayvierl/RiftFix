@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { Activity, ArrowLeft, History, Swords, Target, TrendingUp } from "lucide-react";
+import { Activity, ArrowLeft, CalendarDays, History, LineChart, Swords, Target, TrendingUp } from "lucide-react";
 import MatchCard from "@/components/MatchCard";
 import TrackToggle from "@/components/TrackToggle";
 import ConfidenceBadge from "@/components/ConfidenceBadge";
 import SearchForm from "@/components/SearchForm";
 import RankEmblem from "@/components/RankEmblem";
+import LpHistory from "@/components/LpHistory";
+import RankUpConfetti from "@/components/RankUpConfetti";
+import SeasonHeatmap from "@/components/SeasonHeatmap";
+import ShareCardButton from "@/components/ShareCardButton";
 import { Reveal } from "@/components/motion-primitives";
+import { entryScore, latestDelta } from "@/lib/ladder";
 import { lookupPlayer } from "@/lib/lookup";
 import { RiotError } from "@/lib/riot";
 import { getChampions, getLatestVersion, profileIconUrl, championIconUrl } from "@/lib/ddragon";
@@ -57,6 +62,22 @@ function ProfileView({ profile, version, champIcons }: {
   const s = profile.snapshot;
   const { oneFix, benchmark } = profile;
 
+  // Snapshot history: solo queue is primary; flex is used when it's the
+  // queue with a real history. Delta/chart need >= 2 snapshots.
+  const soloHistory = profile.snapshotHistory.filter((h) => h.queue === "solo");
+  const flexHistory = profile.snapshotHistory.filter((h) => h.queue === "flex");
+  const historyQueue: "solo" | "flex" =
+    soloHistory.length >= 2 || soloHistory.length >= flexHistory.length
+      ? "solo"
+      : "flex";
+  const history = historyQueue === "solo" ? soloHistory : flexHistory;
+  const delta = latestDelta(history);
+  const chartPoints = history.map((h) => ({
+    capturedAt: h.capturedAt,
+    score: entryScore(h),
+    rankLabel: `${titleCase(h.tier)} ${h.division} · ${h.lp} LP`,
+  }));
+
   return (
     <div>
       {/* Header */}
@@ -80,7 +101,12 @@ function ProfileView({ profile, version, champIcons }: {
             {profile.totals.games - profile.totals.wins}L, {pct(profile.totals.winRate)} WR)
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <ShareCardButton
+            platform={s.platform}
+            gameName={s.gameName}
+            tagLine={s.tagLine}
+          />
           <TrackToggle
             puuid={s.puuid}
             platform={s.platform}
@@ -132,6 +158,84 @@ function ProfileView({ profile, version, champIcons }: {
         </div>
       </section>
       </Reveal>
+
+      {/* Climb: LP delta + ladder chart + season heatmap */}
+      <Reveal>
+      <section className="mt-4 rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-300">
+            <LineChart className="h-4 w-4 text-sky-300" />
+            Your climb
+            <span className="font-normal normal-case text-slate-500">
+              ({historyQueue === "solo" ? "Ranked Solo/Duo" : "Ranked Flex"})
+            </span>
+          </h2>
+          {delta && (
+            <p
+              className={`text-sm font-semibold ${
+                delta.scoreDelta > 0
+                  ? "text-emerald-300"
+                  : delta.scoreDelta < 0
+                    ? "text-red-300"
+                    : "text-slate-300"
+              }`}
+            >
+              {delta.promoted && "Promoted — "}
+              {delta.scoreDelta > 0 ? "▲" : delta.scoreDelta < 0 ? "▼" : "•"}{" "}
+              {Math.abs(delta.scoreDelta)}{" "}
+              {delta.sameDivision ? "LP" : "ladder points"} since your previous
+              RiftFix snapshot ·{" "}
+              {new Date(delta.prev.capturedAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+              {(delta.promoted || delta.demoted) &&
+                ` · ${titleCase(delta.prev.tier)} ${delta.prev.division} → ${titleCase(delta.curr.tier)} ${delta.curr.division}`}
+            </p>
+          )}
+        </div>
+        {delta ? (
+          <div className="mt-3">
+            <LpHistory points={chartPoints} />
+            <p className="mt-1 text-xs text-slate-500">
+              Ladder score puts every rank on one scale (each division is worth
+              100, each tier 400, Master+ stacks LP on top) so climbs across
+              divisions chart honestly. One point per RiftFix lookup —{" "}
+              {history.length} snapshot{history.length === 1 ? "" : "s"} so far.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            {history.length === 0 && !s.solo && !s.flex
+              ? "Once this player has a ranked placement, RiftFix records a snapshot on every lookup — and the climb chart starts building from there."
+              : "LP history starts now — RiftFix records a snapshot each time you look up, so your climb chart builds as you return."}
+          </p>
+        )}
+        <RankUpConfetti
+          fire={Boolean(delta?.promoted)}
+          fireKey={`${s.puuid}:${delta?.curr.capturedAt ?? ""}`}
+        />
+      </section>
+      </Reveal>
+
+      {profile.archivedGamesTotal > 0 && (
+        <Reveal>
+        <section className="mt-4 rounded-2xl bg-slate-900/60 p-5 ring-1 ring-slate-800">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-300">
+            <CalendarDays className="h-4 w-4 text-sky-300" />
+            Season activity
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Games per day — from your Forever archive ({profile.archivedGamesTotal}{" "}
+            games). Last 26 weeks, days in UTC.
+          </p>
+          <div className="mt-3">
+            <SeasonHeatmap gamesByDay={profile.gamesByDay} />
+          </div>
+        </section>
+        </Reveal>
+      )}
 
       {/* One Fix + benchmark */}
       <section className="mt-4 grid gap-4 lg:grid-cols-2">

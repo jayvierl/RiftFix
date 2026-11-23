@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Hammer, Home, Swords } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
+import { SerwistProvider } from "@serwist/turbopack/react";
 import Providers from "@/components/Providers";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#0B0E14",
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -73,8 +79,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+          <SerwistProvider
+            swUrl="/serwist/sw.js"
+            disable={process.env.NODE_ENV === "development"}
+          >
+            {children}
+          </SerwistProvider>
+        </main>
         <Providers />
+        <Analytics />
 
         <footer className="border-t border-white/5 py-6">
           <div className="mx-auto w-full max-w-6xl px-4 text-xs leading-relaxed text-slate-500">

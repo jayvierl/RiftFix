@@ -13,6 +13,7 @@
  *       - matches.json   { [matchId]: ArchivedMatch }
  *       - players.json   { [puuid]: PlayerSnapshot }
  *       - tracked.json   { [puuid]: TrackedPlayer }
+ *       - snapshots.json { [puuid]: SnapshotHistoryEntry[] }
  *     Writes are serialized through a small promise queue and written
  *     atomically (tmp file + rename) so a crash mid-write cannot corrupt
  *     the archive. NOTE: on serverless hosts the JSON store is
@@ -26,6 +27,7 @@ import type {
   ArchiveCounts,
   ArchivedMatch,
   PlayerSnapshot,
+  SnapshotHistoryEntry,
   TrackedPlayer,
 } from "./types";
 
@@ -48,12 +50,46 @@ export interface ArchiveStore {
   setTracked(player: TrackedPlayer, tracked: boolean): Promise<void>;
   isTracked(puuid: string): Promise<boolean>;
   counts(): Promise<ArchiveCounts>;
+  /**
+   * Append one ranked-state observation. Implementations deduplicate:
+   * when the newest entry for the same puuid+queue is < 30 minutes old
+   * AND identical in tier/division/lp/wins/losses, the write is skipped.
+   */
+  recordSnapshot(entry: SnapshotHistoryEntry): Promise<void>;
+  /** Snapshot history for a player, oldest first. Optionally one queue. */
+  getSnapshotHistory(
+    puuid: string,
+    queue?: "solo" | "flex"
+  ): Promise<SnapshotHistoryEntry[]>;
+}
+
+/** The dedupe rule shared by both stores (see recordSnapshot). */
+export const SNAPSHOT_DEDUPE_MS = 30 * 60 * 1000;
+
+export function isDuplicateSnapshot(
+  newest: SnapshotHistoryEntry | undefined,
+  entry: SnapshotHistoryEntry
+): boolean {
+  if (!newest) return false;
+  const ageMs =
+    new Date(entry.capturedAt).getTime() - new Date(newest.capturedAt).getTime();
+  return (
+    ageMs >= 0 &&
+    ageMs < SNAPSHOT_DEDUPE_MS &&
+    newest.tier === entry.tier &&
+    newest.division === entry.division &&
+    newest.lp === entry.lp &&
+    newest.wins === entry.wins &&
+    newest.losses === entry.losses
+  );
 }
 
 interface StoreData {
   matches: Record<string, ArchivedMatch>;
   players: Record<string, PlayerSnapshot>;
   tracked: Record<string, TrackedPlayer>;
+  /** Snapshot history rows keyed by puuid, oldest first. */
+  snapshots: Record<string, SnapshotHistoryEntry[]>;
 }
 
 function dataDir(): string {
@@ -103,6 +139,7 @@ class JsonArchiveStore implements ArchiveStore {
           matches: await read("matches.json", {}),
           players: await read("players.json", {}),
           tracked: await read("tracked.json", {}),
+          snapshots: await read("snapshots.json", {}),
         };
         return this.cache;
       })();
@@ -214,6 +251,28 @@ class JsonArchiveStore implements ArchiveStore {
       players: Object.keys(data.players).length,
       tracked: Object.keys(data.tracked).length,
     };
+  }
+
+  async recordSnapshot(entry: SnapshotHistoryEntry): Promise<void> {
+    const data = await this.load();
+    const rows = data.snapshots[entry.puuid] ?? [];
+    const newest = rows.filter((r) => r.queue === entry.queue).at(-1);
+    if (isDuplicateSnapshot(newest, entry)) return;
+    rows.push(entry);
+    rows.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+    data.snapshots[entry.puuid] = rows;
+    await this.persist("snapshots");
+  }
+
+  async getSnapshotHistory(
+    puuid: string,
+    queue?: "solo" | "flex"
+  ): Promise<SnapshotHistoryEntry[]> {
+    const data = await this.load();
+    const rows = data.snapshots[puuid] ?? [];
+    return rows
+      .filter((r) => !queue || r.queue === queue)
+      .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
   }
 }
 

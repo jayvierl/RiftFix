@@ -11,6 +11,9 @@
  *   players(puuid text PK, platform text, game_name_lower text,
  *           tag_lower text, data jsonb, index on the lower triple)
  *   tracked(puuid text PK, data jsonb)
+ *   snapshot_history(puuid, captured_at timestamptz, platform, queue,
+ *                    tier, division, lp, wins, losses;
+ *                    index on (puuid, captured_at))
  *
  * Full payloads live in `data` jsonb so the payload types stay identical to
  * the JSON store; the scalar columns exist only for lookups and ordering.
@@ -19,11 +22,12 @@
  */
 import "server-only";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
-import type { ArchiveStore } from "./archive";
+import { isDuplicateSnapshot, type ArchiveStore } from "./archive";
 import type {
   ArchiveCounts,
   ArchivedMatch,
   PlayerSnapshot,
+  SnapshotHistoryEntry,
   TrackedPlayer,
 } from "./types";
 
@@ -77,6 +81,19 @@ export class PostgresArchiveStore implements ArchiveStore {
           puuid text PRIMARY KEY,
           data jsonb NOT NULL
         )`;
+        await sql`CREATE TABLE IF NOT EXISTS snapshot_history (
+          puuid text NOT NULL,
+          captured_at timestamptz NOT NULL,
+          platform text NOT NULL,
+          queue text NOT NULL,
+          tier text NOT NULL,
+          division text NOT NULL,
+          lp int NOT NULL,
+          wins int NOT NULL,
+          losses int NOT NULL
+        )`;
+        await sql`CREATE INDEX IF NOT EXISTS snapshot_history_puuid_idx
+          ON snapshot_history (puuid, captured_at)`;
       })();
     }
     return this.schemaReady;
@@ -229,5 +246,78 @@ export class PostgresArchiveStore implements ArchiveStore {
       players: p[0].n as number,
       tracked: t[0].n as number,
     };
+  }
+
+  async recordSnapshot(entry: SnapshotHistoryEntry): Promise<void> {
+    await this.ready();
+    const sql = this.sql();
+    const newestRows = await sql`
+      SELECT captured_at, tier, division, lp, wins, losses
+      FROM snapshot_history
+      WHERE puuid = ${entry.puuid} AND queue = ${entry.queue}
+      ORDER BY captured_at DESC
+      LIMIT 1
+    `;
+    if (newestRows.length) {
+      const r = newestRows[0];
+      const newest: SnapshotHistoryEntry = {
+        puuid: entry.puuid,
+        capturedAt: new Date(r.captured_at as string).toISOString(),
+        platform: entry.platform,
+        queue: entry.queue,
+        tier: r.tier as string,
+        division: r.division as string,
+        lp: r.lp as number,
+        wins: r.wins as number,
+        losses: r.losses as number,
+      };
+      if (isDuplicateSnapshot(newest, entry)) return;
+    }
+    await sql`
+      INSERT INTO snapshot_history
+        (puuid, captured_at, platform, queue, tier, division, lp, wins, losses)
+      VALUES (
+        ${entry.puuid},
+        ${entry.capturedAt}::timestamptz,
+        ${entry.platform},
+        ${entry.queue},
+        ${entry.tier},
+        ${entry.division},
+        ${entry.lp},
+        ${entry.wins},
+        ${entry.losses}
+      )
+    `;
+  }
+
+  async getSnapshotHistory(
+    puuid: string,
+    queue?: "solo" | "flex"
+  ): Promise<SnapshotHistoryEntry[]> {
+    await this.ready();
+    const rows = queue
+      ? await this.sql()`
+          SELECT puuid, captured_at, platform, queue, tier, division, lp, wins, losses
+          FROM snapshot_history
+          WHERE puuid = ${puuid} AND queue = ${queue}
+          ORDER BY captured_at ASC
+        `
+      : await this.sql()`
+          SELECT puuid, captured_at, platform, queue, tier, division, lp, wins, losses
+          FROM snapshot_history
+          WHERE puuid = ${puuid}
+          ORDER BY captured_at ASC
+        `;
+    return rows.map((r) => ({
+      puuid: r.puuid as string,
+      capturedAt: new Date(r.captured_at as string).toISOString(),
+      platform: r.platform as string,
+      queue: r.queue as SnapshotHistoryEntry["queue"],
+      tier: r.tier as string,
+      division: r.division as string,
+      lp: r.lp as number,
+      wins: r.wins as number,
+      losses: r.losses as number,
+    }));
   }
 }
