@@ -8,15 +8,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const archive = getArchive();
-  const [counts, tracked, patch] = await Promise.all([
+  const [counts, patch] = await Promise.all([
     archive.counts(),
-    archive.listTracked(),
     getLatestVersion().catch(() => null),
   ]);
   return NextResponse.json({
     hasKey: hasRiotKey(),
     patch,
     corpus: counts,
-    tracked,
   });
 }

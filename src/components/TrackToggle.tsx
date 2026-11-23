@@ -1,49 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  trackPlayer,
+  untrackPlayer,
+  useTrackedPlayers,
+} from "@/lib/tracked-local";
 
 export default function TrackToggle({
   puuid,
-  initialTracked,
+  platform,
+  gameName,
+  tagLine,
 }: {
   puuid: string;
-  initialTracked: boolean;
+  platform: string;
+  gameName: string;
+  tagLine: string;
 }) {
-  const router = useRouter();
-  const [tracked, setTracked] = useState(initialTracked);
-  const [busy, setBusy] = useState(false);
+  const trackedPlayers = useTrackedPlayers();
+  const tracked = trackedPlayers.some((p) => p.puuid === puuid);
 
-  async function toggle() {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ puuid, tracked: !tracked }),
-      });
-      const data = (await res.json()) as { ok: boolean; tracked?: boolean };
-      if (data.ok && typeof data.tracked === "boolean") {
-        setTracked(data.tracked);
-        router.refresh();
-      }
-    } finally {
-      setBusy(false);
+  function toggle() {
+    if (tracked) {
+      untrackPlayer(puuid);
+    } else {
+      trackPlayer({ puuid, platform, gameName, tagLine });
     }
   }
 
   return (
     <button
       onClick={toggle}
-      disabled={busy}
-      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-60 ${
+      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition ${
         tracked
           ? "bg-amber-400/15 text-amber-300 ring-amber-300/40 hover:bg-amber-400/25"
           : "bg-slate-800 text-slate-300 ring-slate-600 hover:bg-slate-700"
       }`}
-      title="Tracked accounts appear on the RiftFix home screen and anchor your Forever archive."
+      title="Tracking is per-visitor: this player is saved only in your own browser (local storage), never on RiftFix's servers."
     >
-      {tracked ? "★ Tracked — in your Forever archive" : "☆ Track this account"}
+      {tracked
+        ? "★ Tracked — saved in your browser"
+        : "☆ Track this player (saved in your browser)"}
     </button>
   );
 }

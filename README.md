@@ -82,7 +82,12 @@ The default store is three JSON documents under `data/archive/`:
 
 - `matches.json` — `{ [matchId]: match }`, matches are immutable once saved
 - `players.json` — latest snapshot (rank, level, mastery) per player
-- `tracked.json` — accounts the user marked as tracked
+- `tracked.json` — legacy server-side tracked marks. The store interface
+  still carries the tracked methods (kept for a possible future admin
+  feature), but the product no longer uses them: tracked players are
+  per-visitor and live only in each visitor's browser (localStorage key
+  `riftfix.tracked.v1`, see `src/lib/tracked-local.ts`). There is no
+  `/api/track` route and `/api/status` returns no tracked list.
 
 Writes are serialized and atomic (tmp file + rename). The archive directory
 is git-ignored. To move to a hosted database later, implement the
@@ -93,15 +98,14 @@ no other file needs to change.
 
 | Route | What it does |
 | --- | --- |
-| `/` | Branding, player search (Riot ID + region), tracked accounts, honest no-key notice |
+| `/` | Branding, player search (Riot ID + region), your tracked players (per-visitor, saved in the browser), honest no-key notice |
 | `/player?platform=&gameName=&tagLine=` | Full profile: ranks, mastery, champion stats, One Fix, next-rank benchmark, pool/session patterns, expandable match scoreboards |
 | `/champions` | Searchable champion grid (live patch) with tag filters |
 | `/champions/[id]` | Champion detail: lore, passive + abilities, base stats, tips |
 | `/builds` | Honest Builds + tier list from the archived corpus |
-| `GET /api/status` | `{ hasKey, patch, corpus counts, tracked }` |
+| `GET /api/status` | `{ hasKey, patch, corpus counts }` |
 | `GET /api/search` | Light Riot ID existence check used by the search form |
 | `GET /api/lookup` | Full lookup (archives matches) as JSON |
-| `POST /api/track` | Track / untrack a looked-up player |
 | `GET /api/champions`, `GET /api/champions/[id]` | Data Dragon champion data |
 | `GET /api/builds` | Builds + tier list as JSON |
 | `GET /api/match/[matchId]` | One archived match (scoreboard data) |

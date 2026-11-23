@@ -9,7 +9,7 @@ export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-3xl font-black text-slate-50">Terms of Service</h1>
-      <p className="mt-1 text-sm text-slate-500">Last updated: November 22, 2026</p>
+      <p className="mt-1 text-sm text-slate-500">Last updated: November 23, 2026</p>
 
       <div className="mt-6 space-y-6 text-sm leading-relaxed text-slate-300">
         <section>
@@ -98,7 +98,9 @@ export default function TermsPage() {
             These terms may be updated; the date above reflects the latest
             revision, and continued use of RiftFix after a change means you
             accept the updated terms. Questions about these terms can be sent
-            through the contact address listed in the Privacy Policy.
+            to{" "}
+            <a href="mailto:lyris@muse.ai" className="text-sky-400 hover:underline">lyris@muse.ai</a>,
+            the same contact address listed in the Privacy Policy.
           </p>
         </section>
       </div>

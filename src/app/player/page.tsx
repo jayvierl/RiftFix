@@ -75,7 +75,12 @@ function ProfileView({ profile, version, champIcons }: {
           </p>
         </div>
         <div className="ml-auto">
-          <TrackToggle puuid={s.puuid} initialTracked={profile.tracked} />
+          <TrackToggle
+            puuid={s.puuid}
+            platform={s.platform}
+            gameName={s.gameName}
+            tagLine={s.tagLine}
+          />
         </div>
       </section>
 

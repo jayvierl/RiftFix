@@ -1,19 +1,16 @@
-import Link from "next/link";
 import SearchForm from "@/components/SearchForm";
+import TrackedPlayers from "@/components/TrackedPlayers";
 import { getArchive } from "@/lib/archive";
 import { getLatestVersion } from "@/lib/ddragon";
 import { hasRiotKey } from "@/lib/riot";
-import { getPlatform } from "@/lib/regions";
-import { profilePath } from "@/lib/format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const archive = getArchive();
-  const [counts, tracked, patch] = await Promise.all([
+  const [counts, patch] = await Promise.all([
     archive.counts(),
-    archive.listTracked(),
     getLatestVersion().catch(() => null),
   ]);
   const keyConfigured = hasRiotKey();
@@ -89,38 +86,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="pb-12">
-        <h2 className="text-lg font-bold text-slate-100">Tracked accounts</h2>
-        {tracked.length === 0 ? (
-          <p className="mt-2 rounded-xl bg-slate-900/60 px-4 py-4 text-sm text-slate-400 ring-1 ring-slate-800">
-            No tracked accounts yet. Look up a player and tap{" "}
-            <span className="text-amber-300">“☆ Track this account”</span> on
-            their profile — tracked accounts live here and anchor your Forever
-            archive.
-          </p>
-        ) : (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {tracked.map((p) => (
-              <Link
-                key={p.puuid}
-                href={profilePath(p.platform, p.gameName, p.tagLine)}
-                className="flex items-center justify-between rounded-xl bg-slate-900/60 px-4 py-3 ring-1 ring-slate-800 transition hover:ring-amber-300/40"
-              >
-                <span>
-                  <span className="block text-sm font-semibold text-slate-100">
-                    {p.gameName}
-                    <span className="text-slate-500">#{p.tagLine}</span>
-                  </span>
-                  <span className="block text-xs text-slate-500">
-                    {getPlatform(p.platform)?.label ?? p.platform}
-                  </span>
-                </span>
-                <span className="text-amber-300">★</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      <TrackedPlayers />
     </div>
   );
 }

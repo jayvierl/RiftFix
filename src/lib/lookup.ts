@@ -56,7 +56,6 @@ export interface PlayerProfile {
   platformLabel: string;
   /** True when served from the archive because no live key is configured. */
   fromArchiveOnly: boolean;
-  tracked: boolean;
   matches: ArchivedMatch[];
   championStats: ChampionStat[];
   oneFix: OneFixResult;
@@ -149,7 +148,6 @@ async function buildProfile(
     snapshot,
     platformLabel: getPlatform(snapshot.platform)?.label ?? snapshot.platform,
     fromArchiveOnly,
-    tracked: await archive.isTracked(snapshot.puuid),
     matches,
     championStats: championStats(lines),
     oneFix: computeOneFix(lines),
@@ -259,7 +257,7 @@ export async function lookupPlayer(
   return buildProfile(snapshot, false);
 }
 
-/** Archive-only profile by puuid (used for tracked accounts / match pages). */
+/** Archive-only profile by puuid (used for match pages). */
 export async function getArchivedProfile(
   puuid: string
 ): Promise<PlayerProfile | null> {
