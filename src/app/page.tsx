@@ -20,6 +20,15 @@ export default async function HomePage() {
 
   return (
     <div>
+      <div className="relative -mx-4 -mt-6 mb-2 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero.jpg"
+          alt=""
+          className="h-44 w-full object-cover object-center opacity-70 sm:h-60"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#070b14]" />
+      </div>
       <section className="py-8 text-center sm:py-12">
         <h1 className="text-4xl font-black tracking-tight text-slate-50 sm:text-5xl">
           Fix the one thing

@@ -29,6 +29,14 @@ export const metadata: Metadata = {
       "Player lookups, a permanent Forever archive, your One Fix, and Honest Builds computed only from real archived games.",
     siteName: "RiftFix",
     type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "RiftFix — One fix at a time." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RiftFix — League of Legends stats, One Fix, Honest Builds",
+    description:
+      "Player lookups, a permanent Forever archive, your One Fix, and Honest Builds computed only from real archived games.",
+    images: ["/og.png"],
   },
 };
 
